@@ -41,13 +41,25 @@ public class MainTeleOp extends OpMode {
     public static double RED_DRIVER_FORWARD_DEG  = 0;
     public static double BLUE_DRIVER_FORWARD_DEG = 180;
 
-    private Localizer localizer;
-    private Mecanum drivetrain;
-    private Shooter shooter;
+    protected Localizer localizer;
+    protected Mecanum drivetrain;
+    protected Shooter shooter;
 
-    private boolean isRed = true;
+    protected boolean isRed = true;
     private boolean lastTriangle = false;
     private Pose autoPose;
+
+    // ── Hooks for the test / tuning TeleOps that extend this one ─────────────
+    /** true = start from the pose (and alliance) the last Auto saved. */
+    protected boolean useSavedPose() { return true; }
+    /** true = save the pose at the end, for the next OpMode. */
+    protected boolean savePoseOnStop() { return true; }
+    /** Shown at the top of telemetry. */
+    protected String title() { return "TeleOp"; }
+    /** Called every loop before the shooter updates (extra controls). */
+    protected void extraControls(Pose pose) {}
+    /** Called every loop after the normal telemetry. */
+    protected void extraTelemetry() {}
 
     @Override
     public void init() {
@@ -56,8 +68,8 @@ public class MainTeleOp extends OpMode {
 
         // After an Auto: keep its pose, alliance and turret encoder count.
         // No Auto since the app started: the turret must face forward now (encoder is zeroed).
-        autoPose = Field.loadPose(blackboard);
-        isRed    = Field.loadRed(blackboard, true);
+        autoPose = useSavedPose() ? Field.loadPose(blackboard) : null;
+        isRed    = useSavedPose() ? Field.loadRed(blackboard, true) : true;
         shooter  = new Shooter(hardwareMap, autoPose == null);
     }
 
@@ -65,13 +77,15 @@ public class MainTeleOp extends OpMode {
     public void init_loop() {
         if (gamepad1.dpad_left)  isRed = true;
         if (gamepad1.dpad_right) isRed = false;
+        telemetry.addLine(title());
         telemetry.addData("ALLIANCE", isRed ? "RED  (dpad ◄)" : "BLUE (dpad ►)");
         telemetry.addLine("DPAD ◄ = RED    DPAD ► = BLUE");
         if (autoPose != null) {
             telemetry.addData("Start from Auto pose", "x %.1f  y %.1f  h %.0f°",
                     autoPose.x(), autoPose.y(), Math.toDegrees(autoPose.heading()));
         } else {
-            telemetry.addLine("No Auto pose: starting at the alliance start pose.");
+            Pose s = startPose();
+            telemetry.addData("Start pose", "x %.1f  y %.1f  h %.0f°", s.x(), s.y(), Math.toDegrees(s.heading()));
             telemetry.addLine("Turret must face straight forward now (encoder zeroed).");
         }
         telemetry.update();
@@ -104,22 +118,25 @@ public class MainTeleOp extends OpMode {
         // ── Shooter ──────────────────────────────────────────────────────────
         shooter.setIntake(gamepad1.right_trigger - gamepad1.left_trigger);
         if (gamepad1.left_bumper) shooter.shoot();
+        extraControls(pose);
         shooter.update(pose, localizer.velocity());
 
+        telemetry.addLine(title());
         telemetry.addData("Alliance", isRed ? "RED" : "BLUE");
         telemetry.addData("Robot", "x %.1f  y %.1f  h %.1f°", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
         shooter.addTelemetry(telemetry);
+        extraTelemetry();
         telemetry.update();
     }
 
     @Override
     public void stop() {
-        if (localizer != null) Field.savePose(blackboard, localizer.pose(), isRed);
+        if (localizer != null && savePoseOnStop()) Field.savePose(blackboard, localizer.pose(), isRed);
         if (drivetrain != null) drivetrain.stop();
         if (shooter != null) shooter.stop();
     }
 
-    private Pose startPose() {
+    protected Pose startPose() {
         return Field.pose(isRed, RED_START_X, RED_START_Y, RED_START_HEADING_DEG);
     }
 }

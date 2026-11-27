@@ -18,6 +18,10 @@ Last season's code (Pedro 2.1.2, DECODE) is saved in `archive/2025-26-decode/`. 
 | `teamcode/opmodes/MainTeleOp.java` | "TeleOp": field-centric drive, alliance select, shoot on LB, intake on RT |
 | `teamcode/opmodes/FlywheelEncoderTest.java` | Prints flywheel `getVelocity()` |
 | `teamcode/opmodes/ServoTuner.java` | Find gate / hood servo positions |
+| `teamcode/opmodes/TestTeleOp.java` | "TEST: TeleOp (start 72,72)": TeleOp that always starts at (72,72,90°) and shows position |
+| `teamcode/opmodes/FlywheelPIDFTuner.java` | "TUNE: Flywheel PIDF": live kF/kP/kI/kD tuning with rise time, overshoot, feed dip |
+| `teamcode/opmodes/LutFinder.java` | "TUNE: LUT Finder": TeleOp with manual speed/hood, records LUT points |
+| `teamcode/subsystems/FlywheelPIDF.java` | Flywheel velocity controller (gains live here) |
 | `teamcode/subsystems/Shooter.java` | Flywheel, intake, gate, hood, turret aim, shot sequence (shared by Auto + TeleOp) |
 | `teamcode/subsystems/Field.java` | Red→blue mirroring and the Auto→TeleOp pose handoff (blackboard) |
 
@@ -36,6 +40,8 @@ Last season's code (Pedro 2.1.2, DECODE) is saved in `archive/2025-26-decode/`. 
 | `pinpoint` | I2C: goBILDA Pinpoint | odometry computer |
 | `turnAngle` | Servo | hood (single servo) |
 | `gate` | Servo | optional; TeleOp skips it if missing |
+
+See [TUNING_GUIDE.md](TUNING_GUIDE.md) for the full step-by-step tuning guide.
 
 ## Bring-up order (AutoTune)
 

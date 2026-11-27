@@ -32,9 +32,7 @@ public class Shooter {
     public static double RED_TARGET_HIGH_Y = 89;
     public static double SPLIT_Y           = 72;
 
-    // ── Flywheel (1 motor): power = kF * target + kP * (target - velocity) ───
-    public static double FLY_KF = 0.00039;
-    public static double FLY_KP = 0.0022;
+    // ── Flywheel (1 motor). Gains live in FlywheelPIDF (tune with "TUNE: Flywheel PIDF"). ─
     public static double AT_SPEED_TOLERANCE = 50; // ticks/s
     public static DcMotorSimple.Direction FLYWHEEL_DIR = DcMotorSimple.Direction.REVERSE;
 
@@ -52,7 +50,8 @@ public class Shooter {
     // ── Gate + hood ──────────────────────────────────────────────────────────
     public static double GATE_OPEN  = 0.91;
     public static double GATE_CLOSE = 0.75;
-    public static double HOOD_POS   = 0.5;  // fixed for now
+    public static double HOOD_POS   = 0.5;  // used while USE_HOOD_LUT is false
+    public static boolean USE_HOOD_LUT = false; // true = hood from LUT_HOOD by distance
 
     // ── Turret ───────────────────────────────────────────────────────────────
     private static final double TICKS_PER_MOTOR_REV  = 383.6;
@@ -68,9 +67,13 @@ public class Shooter {
     private static final int    FILTER_SIZE      = 4;
 
     // ── LUT: distance turret→target (in) → flywheel velocity / time of flight ─
-    private static final double[] LUT_DIST = { 40,    50,    60,    70,    80,    90,    100,   110,   120,   130,   140,   150,   160,   170   };
-    private static final double[] LUT_VEL  = { 1025,  1050,  1125,  1225,  1250,  1350,  1375,  1425,  1500,  1525,  1600,  1650,  1725,  1800  };
-    private static final double[] LUT_TOF  = { 0.800, 0.600, 0.530, 0.583, 0.635, 0.585, 0.670, 0.665, 0.670, 0.705, 0.740, 0.735, 0.800, 0.880 };
+    // Fill these from "TUNE: LUT Finder". LUT_DIST must be increasing; all rows the same length.
+    public static double[] LUT_DIST = { 40,    50,    60,    70,    80,    90,    100,   110,   120,   130,   140,   150,   160,   170   };
+    public static double[] LUT_VEL  = { 1025,  1050,  1125,  1225,  1250,  1350,  1375,  1425,  1500,  1525,  1600,  1650,  1725,  1800  };
+    public static double[] LUT_HOOD = { 0.15,  0.4,   0.45,  0.7,   0.7,   0.75,  0.75,  0.8,   0.8,   0.8,   0.85,  0.85,  0.9,   0.9   };
+    // Time of flight (s) for shoot-on-the-move, on its own distance list so the rows above can change length.
+    public static double[] TOF_DIST = { 40,    50,    60,    70,    80,    90,    100,   110,   120,   130,   140,   150,   160,   170   };
+    public static double[] LUT_TOF  = { 0.800, 0.600, 0.530, 0.583, 0.635, 0.585, 0.670, 0.665, 0.670, 0.705, 0.740, 0.735, 0.800, 0.880 };
 
     public enum State { IDLE, REVING, GATE_WAIT, SHOOT, RESET }
 
@@ -81,13 +84,17 @@ public class Shooter {
     private State state = State.IDLE;
     private final ElapsedTime timer = new ElapsedTime();
     private double manualIntake = 0;
+    private final FlywheelPIDF flywheelPIDF = new FlywheelPIDF();
+
+    // Manual overrides (LUT Finder). null = use the LUT.
+    private Double velOverride = null, hoodOverride = null;
 
     private double lastTurretError = 0;
     private final ArrayDeque<Double> turretFilter = new ArrayDeque<>();
 
     // Last-loop values, for telemetry.
     private double targetX, targetY, realDist, virtDist, virtX, virtY, tof;
-    private double targetVel, flyVel, flyPower, turretAngle;
+    private double targetVel, flyVel, flyPower, turretAngle, hoodPos;
 
     /**
      * @param zeroTurret true = the turret faces straight forward right now, reset its encoder.
@@ -126,6 +133,18 @@ public class Shooter {
 
     public boolean isBusy() { return state != State.IDLE; }
 
+    /** Use these instead of the LUT (pass null to go back to the LUT). For finding LUT values. */
+    public void setOverride(Double flywheelVel, Double hood) {
+        velOverride = flywheelVel;
+        hoodOverride = hood;
+    }
+
+    /** Distance from the turret to the real (not lead-corrected) target, last loop. */
+    public double distance() { return realDist; }
+    public double targetVelocity() { return targetVel; }
+    public double flywheelVelocity() { return flyVel; }
+    public double hoodPosition() { return hoodPos; }
+
     public State state() { return state; }
 
     /** Intake power used while not shooting (+ = in). */
@@ -155,13 +174,13 @@ public class Shooter {
         double turretY = pose.y() - TURRET_OFFSET_INCHES * Math.sin(h);
         realDist = Math.hypot(targetX - turretX, targetY - turretY);
 
-        tof = lut(LUT_TOF, realDist);
+        tof = lut(TOF_DIST, LUT_TOF, realDist);
         virtX = targetX - fieldVelocity.vx * tof;
         virtY = targetY - fieldVelocity.vy * tof;
         virtDist = Math.hypot(virtX - turretX, virtY - turretY);
-        targetVel = lut(LUT_VEL, virtDist);
-
-        hood.setPosition(HOOD_POS);
+        targetVel = velOverride != null ? velOverride : lut(LUT_DIST, LUT_VEL, virtDist);
+        hoodPos = hoodOverride != null ? hoodOverride : (USE_HOOD_LUT ? lut(LUT_DIST, LUT_HOOD, virtDist) : HOOD_POS);
+        hood.setPosition(hoodPos);
         turretAngle = aimTurret(Math.toDegrees(Math.atan2(virtY - turretY, virtX - turretX)), Math.toDegrees(h));
 
         // ── Shot sequence ────────────────────────────────────────────────────
@@ -194,7 +213,12 @@ public class Shooter {
         intakeLeft.setPower(intake);
         intakeRight.setPower(intake);
 
-        flyPower = state == State.IDLE ? 0 : clip(FLY_KF * targetVel + FLY_KP * (targetVel - flyVel), 0, 1);
+        if (state == State.IDLE) {
+            flywheelPIDF.reset();
+            flyPower = 0;
+        } else {
+            flyPower = flywheelPIDF.calculate(targetVel, flyVel);
+        }
         flywheel.setPower(flyPower);
     }
 
@@ -203,6 +227,7 @@ public class Shooter {
         t.addData("Dist real / virt", "%.1f / %.1f in", realDist, virtDist);
         t.addData("Lead", "x %.1f  y %.1f  (ToF %.2f s)", targetX - virtX, targetY - virtY, tof);
         t.addData("Turret", "%.1f°", turretAngle);
+        t.addData("Hood", "%.2f%s", hoodPos, hoodOverride != null ? " (manual)" : "");
         t.addData("Shooter", state);
         t.addData("Flywheel", "target %.0f  actual %.0f  pwr %.2f", targetVel, flyVel, flyPower);
     }
@@ -253,14 +278,16 @@ public class Shooter {
         return current;
     }
 
-    private static double lut(double[] table, double dist) {
-        if (dist <= LUT_DIST[0]) return table[0];
-        int last = LUT_DIST.length - 1;
-        if (dist >= LUT_DIST[last]) return table[last];
+    /** Linear interpolation of ys over xs (xs increasing, same length). Clamped at both ends. */
+    public static double lut(double[] xs, double[] ys, double x) {
+        int n = Math.min(xs.length, ys.length);
+        if (n == 0) return 0;
+        if (x <= xs[0]) return ys[0];
+        if (x >= xs[n - 1]) return ys[n - 1];
         int i = 0;
-        while (LUT_DIST[i + 1] < dist) i++;
-        double t = (dist - LUT_DIST[i]) / (LUT_DIST[i + 1] - LUT_DIST[i]);
-        return table[i] + t * (table[i + 1] - table[i]);
+        while (xs[i + 1] < x) i++;
+        double t = (x - xs[i]) / (xs[i + 1] - xs[i]);
+        return ys[i] + t * (ys[i + 1] - ys[i]);
     }
 
     private static double wrap180(double deg) {
