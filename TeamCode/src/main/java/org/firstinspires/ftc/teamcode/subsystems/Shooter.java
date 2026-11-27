@@ -93,6 +93,7 @@ public class Shooter {
     private final ArrayDeque<Double> turretFilter = new ArrayDeque<>();
 
     // Last-loop values, for telemetry.
+    private boolean aimingHigh;
     private double targetX, targetY, realDist, virtDist, virtX, virtY, tof;
     private double targetVel, flyVel, flyPower, turretAngle, hoodPos;
 
@@ -141,6 +142,11 @@ public class Shooter {
 
     /** Distance from the turret to the real (not lead-corrected) target, last loop. */
     public double distance() { return realDist; }
+    /** The hive cell being aimed at (field coordinates). */
+    public double targetX() { return targetX; }
+    public double targetY() { return targetY; }
+    /** true = robot is above the split line (y >= 72 in red terms), so it aims at the HIGH cell. */
+    public boolean aimingHigh() { return aimingHigh; }
     public double targetVelocity() { return targetVel; }
     public double flywheelVelocity() { return flyVel; }
     public double hoodPosition() { return hoodPos; }
@@ -164,7 +170,8 @@ public class Shooter {
     public void update(Pose pose, Velocity fieldVelocity) {
         // ── Target: point-mirror the robot into red coordinates, choose, mirror back ─
         double redFrameY = isRed ? pose.y() : 144 - pose.y();
-        double redY = redFrameY < SPLIT_Y ? RED_TARGET_LOW_Y : RED_TARGET_HIGH_Y;
+        aimingHigh = redFrameY >= SPLIT_Y;
+        double redY = aimingHigh ? RED_TARGET_HIGH_Y : RED_TARGET_LOW_Y;
         targetX = isRed ? RED_TARGET_X : 144 - RED_TARGET_X;
         targetY = isRed ? redY : 144 - redY;
 

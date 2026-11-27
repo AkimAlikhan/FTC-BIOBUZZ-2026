@@ -78,7 +78,12 @@ public class LutFinder extends MainTeleOp {
     protected void extraTelemetry() {
         telemetry.addLine();
         telemetry.addLine("── LUT FINDER ──  (stand still when shooting)");
-        telemetry.addData("Distance", "%.1f in", shooter.distance());
+        Pose pose = localizer.pose();
+        telemetry.addData("Robot", "x %.1f  y %.1f  h %.1f°", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        telemetry.addData("Hive cell", "%s  (%.0f, %.0f)   switches at y = %.0f",
+                shooter.aimingHigh() ? "HIGH" : "LOW", shooter.targetX(), shooter.targetY(),
+                isRed ? Shooter.SPLIT_Y : 144 - Shooter.SPLIT_Y);
+        telemetry.addData("Distance to hive", "%.1f in   (from turret center)", shooter.distance());
         telemetry.addData("Manual velocity", "%.0f   (DPAD U/D)", vel);
         telemetry.addData("Manual hood", "%.2f   (DPAD L/R)", hood);
         telemetry.addLine("A record | X undo | B load LUT value | LB shoot");
