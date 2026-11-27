@@ -1,0 +1,27 @@
+─────────────────────────────────────────────────────────────
+  STEP 1 — Copy detect.tflite into the assets folder
+─────────────────────────────────────────────────────────────
+  Destination:  TeamCode/src/main/assets/detect.tflite
+
+  If the "assets" folder does not exist yet, create it:
+    TeamCode/src/main/assets/    ← create this folder
+    TeamCode/src/main/assets/detect.tflite  ← put the file here
+
+  The file is bundled into the APK automatically on every build.
+  No WiFi upload, no Manage page, no USB transfer needed.
+
+─────────────────────────────────────────────────────────────
+  STEP 2 — Add TFLite to TeamCode/build.gradle
+─────────────────────────────────────────────────────────────
+  Inside  dependencies { }  add:
+    implementation 'org.tensorflow:tensorflow-lite:2.16.1'
+
+  Inside  android { }  add (prevents JNI conflicts on ARM):
+    packagingOptions {
+        pickFirst 'lib/arm64-v8a/libtensorflowlite_jni.so'
+        pickFirst 'lib/armeabi-v7a/libtensorflowlite_jni.so'
+    }
+
+─────────────────────────────────────────────────────────────
+  That's it — no Vuforia key, no Manage page upload needed.
+─────────────────────────────────────────────────────────────
