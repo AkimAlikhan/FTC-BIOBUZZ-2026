@@ -5,21 +5,21 @@ import com.pedropathing.math.Velocity;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 /**
- * Same as "TeleOp", but always starts at (72, 72, 90°):
+ * Same as "TeleOp", but always starts at (24, 24, 90°):
  *   - ignores the pose / alliance saved by Auto,
  *   - doesn't save its own pose at the end (so it never affects the real TeleOp),
  *   - zeroes the turret at init (turret must face forward),
- *   - Triangle resets to (72, 72, 90°).
+ *   - Triangle resets to (24, 24, 90°).
  * Alliance is still chosen in init with DPAD LEFT (red) / RIGHT (blue).
  */
-@TeleOp(name = "TEST: TeleOp (start 72,72)", group = "Test")
+@TeleOp(name = "TEST: TeleOp (start 24,24)", group = "Test")
 public class TestTeleOp extends MainTeleOp {
 
-    public static double TEST_X = 72, TEST_Y = 72, TEST_HEADING_DEG = 90;
+    public static double TEST_X = 24, TEST_Y = 24, TEST_HEADING_DEG = 90;
 
     @Override protected boolean useSavedPose()   { return false; }
     @Override protected boolean savePoseOnStop() { return false; }
-    @Override protected String title()           { return "TEST TeleOp (start 72, 72, 90°)"; }
+    @Override protected String title()           { return "TEST TeleOp (start 24, 24, 90°)"; }
 
     @Override
     protected Pose startPose() {

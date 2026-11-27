@@ -12,8 +12,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * Put the numbers from "TUNE: Flywheel PIDF" here.
  */
 public class FlywheelPIDF {
-    public static double KF = 0.00039;
-    public static double KP = 0.0022;
+    public static double KF = 0.00041;
+    public static double KP = 0.002;
     public static double KI = 0.0;
     public static double KD = 0.0;
 

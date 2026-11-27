@@ -14,7 +14,7 @@ import java.util.Locale;
 /**
  * Find LUT values: everything works like "TeleOp" (drive, turret aim, intake, LB shot),
  * but flywheel velocity and hood are set by hand, and you record the ones that score.
- * Always starts at (72, 72, 90°) and never touches the Auto/TeleOp saved pose.
+ * Always starts at (24, 24, 90°) - place the robot on that tile corner, facing +y - and never touches the Auto/TeleOp saved pose.
  *
  * GAMEPAD 1 (on top of the normal TeleOp controls)
  *   DPAD UP / DOWN      flywheel velocity +/- 25 ticks/s
@@ -23,14 +23,13 @@ import java.util.Locale;
  *   Cross (A)           RECORD this distance + velocity + hood
  *   Square (X)          delete the last recorded point
  *
- * STAND STILL while shooting here (shoot-on-the-move changes the aim when moving).
  * Recorded points are printed sorted, as Java arrays ready to paste into Shooter.java
  * (also written to the robot log under the tag "LUT").
  */
-@TeleOp(name = "TUNE: LUT Finder (start 72,72)", group = "Tuning")
+@TeleOp(name = "TUNE: LUT Finder (start 24,24)", group = "Tuning")
 public class LutFinder extends MainTeleOp {
 
-    public static double START_X = 72, START_Y = 72, START_HEADING_DEG = 90;
+    public static double START_X = 24, START_Y = 24, START_HEADING_DEG = 90;
 
     private double vel = 1300;
     private double hood = Shooter.HOOD_POS;
@@ -40,7 +39,7 @@ public class LutFinder extends MainTeleOp {
 
     @Override protected boolean useSavedPose()   { return false; }
     @Override protected boolean savePoseOnStop() { return false; }
-    @Override protected String title()           { return "LUT FINDER (start 72, 72, 90°)"; }
+    @Override protected String title()           { return "LUT FINDER (start 24, 24, 90°)"; }
 
     @Override
     protected Pose startPose() {
@@ -77,7 +76,7 @@ public class LutFinder extends MainTeleOp {
     @Override
     protected void extraTelemetry() {
         telemetry.addLine();
-        telemetry.addLine("── LUT FINDER ──  (stand still when shooting)");
+        telemetry.addLine("── LUT FINDER ──");
         Pose pose = localizer.pose();
         telemetry.addData("Robot", "x %.1f  y %.1f  h %.1f°", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
         telemetry.addData("Hive cell", "%s  (%.0f, %.0f)   switches at y = %.0f",

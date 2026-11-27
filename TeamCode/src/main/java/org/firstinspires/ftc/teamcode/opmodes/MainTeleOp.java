@@ -25,7 +25,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
  *   Right stick X   turn
  *   Left bumper     SHOOT: rev flywheel -> open gate -> intake 1 s -> close gate, stop all
  *   Right trigger   intake in              Left trigger   intake out
- *   Triangle / Y    reset pose to the alliance start pose
+ *   Triangle / Y    reset pose to (24, 24, 90°)
  *
  * Driving is never blocked, including while shooting.
  * Shooter/turret settings live in subsystems/Shooter.java.
@@ -33,8 +33,9 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 @TeleOp(name = "TeleOp", group = "Competition")
 public class MainTeleOp extends OpMode {
 
-    // ── Start pose (RED; blue is mirrored through the field center). Triangle resets to this. ─
-    public static double RED_START_X = 55.912, RED_START_Y = 8.287, RED_START_HEADING_DEG = 90;
+    // ── Start pose: the last pose saved on the blackboard (by Auto or a previous TeleOp).
+    // If there is none, this one. Triangle resets to it. Same for both alliances.
+    public static double START_X = 24, START_Y = 24, START_HEADING_DEG = 90;
 
     // ── Field-centric: the field direction each driver faces. Red drivers stand at the
     // left wall (look toward +x), blue drivers at the right wall (look toward -x).
@@ -119,7 +120,7 @@ public class MainTeleOp extends OpMode {
         shooter.setIntake(gamepad1.right_trigger - gamepad1.left_trigger);
         if (gamepad1.left_bumper) shooter.shoot();
         extraControls(pose);
-        shooter.update(pose, localizer.velocity());
+        shooter.update(pose);
 
         telemetry.addLine(title());
         telemetry.addData("Alliance", isRed ? "RED" : "BLUE");
@@ -137,6 +138,6 @@ public class MainTeleOp extends OpMode {
     }
 
     protected Pose startPose() {
-        return Field.pose(isRed, RED_START_X, RED_START_Y, RED_START_HEADING_DEG);
+        return new Pose(START_X, START_Y, Math.toRadians(START_HEADING_DEG));
     }
 }

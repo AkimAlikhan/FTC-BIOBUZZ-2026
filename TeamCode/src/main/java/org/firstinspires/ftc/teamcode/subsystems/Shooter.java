@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.pedropathing.math.Pose;
-import com.pedropathing.math.Velocity;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -16,9 +15,8 @@ import java.util.ArrayDeque;
 /**
  * Flywheel + intake + gate + hood + turret, shared by TeleOp and Auto.
  *
- * Call update(pose, velocity) every loop. It:
+ * Call update(pose) every loop. It:
  *   - picks the hive target (LOW if robot y < 72, HIGH otherwise; blue is point-mirrored),
- *   - leads the target for robot motion (shoot on the move),
  *   - aims the turret,
  *   - runs the shot sequence: REVING -> GATE_WAIT -> SHOOT -> RESET -> IDLE.
  *
@@ -26,10 +24,10 @@ import java.util.ArrayDeque;
  */
 public class Shooter {
 
-    // ── Hive targets, written for RED. Blue = mirrored through the field center. ──
-    public static double RED_TARGET_X      = 58;
-    public static double RED_TARGET_LOW_Y  = 55;
-    public static double RED_TARGET_HIGH_Y = 89;
+    // ── Hive targets, written for RED. Blue = mirrored through the field center
+    // (x -> 144 - x, y -> 144 - y). LOW is used when the robot is below SPLIT_Y, HIGH above.
+    public static double RED_LOW_X  = 60, RED_LOW_Y  = 54;
+    public static double RED_HIGH_X = 60, RED_HIGH_Y = 144 - 54;  // = (60, 90)
     public static double SPLIT_Y           = 72;
 
     // ── Flywheel (1 motor). Gains live in FlywheelPIDF (tune with "TUNE: Flywheel PIDF"). ─
@@ -58,7 +56,7 @@ public class Shooter {
     private static final double TURRET_GEAR_RATIO    = 125.0 / 33.0;
     private static final double TICKS_PER_DEG        = TICKS_PER_MOTOR_REV * TURRET_GEAR_RATIO / 360.0;
     private static final double TURRET_OFFSET_INCHES = 25.83 / 25.4; // turret center is behind robot center
-    private static final double TURRET_KP        = 0.065;
+    public static double TURRET_KP = 0.04;  // was 0.065; lower = gentler turret, higher = snappier
     private static final double TURRET_KD        = 0.00011;
     private static final double TURRET_TOLERANCE = 0.5;   // deg
     private static final double TURRET_MAX_DEG   = 180;
@@ -71,9 +69,6 @@ public class Shooter {
     public static double[] LUT_DIST = { 40,    50,    60,    70,    80,    90,    100,   110,   120,   130,   140,   150,   160,   170   };
     public static double[] LUT_VEL  = { 1025,  1050,  1125,  1225,  1250,  1350,  1375,  1425,  1500,  1525,  1600,  1650,  1725,  1800  };
     public static double[] LUT_HOOD = { 0.15,  0.4,   0.45,  0.7,   0.7,   0.75,  0.75,  0.8,   0.8,   0.8,   0.85,  0.85,  0.9,   0.9   };
-    // Time of flight (s) for shoot-on-the-move, on its own distance list so the rows above can change length.
-    public static double[] TOF_DIST = { 40,    50,    60,    70,    80,    90,    100,   110,   120,   130,   140,   150,   160,   170   };
-    public static double[] LUT_TOF  = { 0.800, 0.600, 0.530, 0.583, 0.635, 0.585, 0.670, 0.665, 0.670, 0.705, 0.740, 0.735, 0.800, 0.880 };
 
     public enum State { IDLE, REVING, GATE_WAIT, SHOOT, RESET }
 
@@ -94,7 +89,7 @@ public class Shooter {
 
     // Last-loop values, for telemetry.
     private boolean aimingHigh;
-    private double targetX, targetY, realDist, virtDist, virtX, virtY, tof;
+    private double targetX, targetY, realDist;
     private double targetVel, flyVel, flyPower, turretAngle, hoodPos;
 
     /**
@@ -167,28 +162,25 @@ public class Shooter {
         setGate(GATE_CLOSE);
     }
 
-    public void update(Pose pose, Velocity fieldVelocity) {
+    public void update(Pose pose) {
         // ── Target: point-mirror the robot into red coordinates, choose, mirror back ─
         double redFrameY = isRed ? pose.y() : 144 - pose.y();
         aimingHigh = redFrameY >= SPLIT_Y;
-        double redY = aimingHigh ? RED_TARGET_HIGH_Y : RED_TARGET_LOW_Y;
-        targetX = isRed ? RED_TARGET_X : 144 - RED_TARGET_X;
+        double redX = aimingHigh ? RED_HIGH_X : RED_LOW_X;
+        double redY = aimingHigh ? RED_HIGH_Y : RED_LOW_Y;
+        targetX = isRed ? redX : 144 - redX;
         targetY = isRed ? redY : 144 - redY;
 
-        // ── Shoot on the move: aim at a target shifted against our velocity ──
+        // ── Distance + aim from the turret center straight at the hive cell ──
         double h = pose.heading();
         double turretX = pose.x() - TURRET_OFFSET_INCHES * Math.cos(h);
         double turretY = pose.y() - TURRET_OFFSET_INCHES * Math.sin(h);
         realDist = Math.hypot(targetX - turretX, targetY - turretY);
 
-        tof = lut(TOF_DIST, LUT_TOF, realDist);
-        virtX = targetX - fieldVelocity.vx * tof;
-        virtY = targetY - fieldVelocity.vy * tof;
-        virtDist = Math.hypot(virtX - turretX, virtY - turretY);
-        targetVel = velOverride != null ? velOverride : lut(LUT_DIST, LUT_VEL, virtDist);
-        hoodPos = hoodOverride != null ? hoodOverride : (USE_HOOD_LUT ? lut(LUT_DIST, LUT_HOOD, virtDist) : HOOD_POS);
+        targetVel = velOverride != null ? velOverride : lut(LUT_DIST, LUT_VEL, realDist);
+        hoodPos = hoodOverride != null ? hoodOverride : (USE_HOOD_LUT ? lut(LUT_DIST, LUT_HOOD, realDist) : HOOD_POS);
         hood.setPosition(hoodPos);
-        turretAngle = aimTurret(Math.toDegrees(Math.atan2(virtY - turretY, virtX - turretX)), Math.toDegrees(h));
+        turretAngle = aimTurret(Math.toDegrees(Math.atan2(targetY - turretY, targetX - turretX)), Math.toDegrees(h));
 
         // ── Shot sequence ────────────────────────────────────────────────────
         flyVel = flywheel.getVelocity();
@@ -231,8 +223,7 @@ public class Shooter {
 
     public void addTelemetry(Telemetry t) {
         t.addData("Target", "(%.0f, %.0f)", targetX, targetY);
-        t.addData("Dist real / virt", "%.1f / %.1f in", realDist, virtDist);
-        t.addData("Lead", "x %.1f  y %.1f  (ToF %.2f s)", targetX - virtX, targetY - virtY, tof);
+        t.addData("Distance", "%.1f in", realDist);
         t.addData("Turret", "%.1f°", turretAngle);
         t.addData("Hood", "%.2f%s", hoodPos, hoodOverride != null ? " (manual)" : "");
         t.addData("Shooter", state);

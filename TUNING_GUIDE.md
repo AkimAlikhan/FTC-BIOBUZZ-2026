@@ -8,8 +8,8 @@ Do these in order. Each step builds on the one before it.
 | 1 | Pedro: drivetrain + odometry | AutoTune web page | `pedro/Constants.java` |
 | 2 | Pedro: Foresight (path following) | AutoTune web page | `pedro/Constants.java` |
 | 3 | Flywheel PIDF | `TUNE: Flywheel PIDF` | `subsystems/FlywheelPIDF.java` |
-| 4 | Shooting LUT | `TUNE: LUT Finder (start 72,72)` | `subsystems/Shooter.java` |
-| 5 | Check everything | `TEST: TeleOp (start 72,72)`, then the autos | |
+| 4 | Shooting LUT | `TUNE: LUT Finder (start 24,24)` | `subsystems/Shooter.java` |
+| 5 | Check everything | `TEST: TeleOp (start 24,24)`, then the autos | |
 
 **Values changed with the gamepad are lost when the Robot Controller app restarts.**
 Always copy the final numbers into the Java file, then rebuild and install (Run ▶ in Android Studio).
@@ -57,7 +57,7 @@ AutoTune is a web page hosted by the robot. It runs the robot by itself: you don
 Rebuild and install first if you changed `Constants.java`.
 - **Localization / Pose Test:** drive or push the robot. Forward must increase **x**, moving left must increase **y**, and turning left (counter-clockwise) must increase heading.
 - **Odometry Test:** it must pass. Don't tune Foresight on bad odometry.
-- You can also use **TEST: TeleOp (start 72,72)**. Its POSITION block shows x, y, heading and "moved from start". Push the robot exactly 24 in forward: dx (or dy, depending on heading) should read about 24.
+- You can also use **TEST: TeleOp (start 24,24)**. Its POSITION block shows x, y, heading and "moved from start". Push the robot exactly 24 in forward: dx (or dy, depending on heading) should read about 24.
 
 > Don't tune odometry anywhere the floor moves (a train, a bus): the gyro picks up that motion.
 
@@ -113,7 +113,7 @@ The real Shooter uses this exact controller, so the match TeleOp and autos behav
 
 ---
 
-## 4. Shooting LUT (*TUNE: LUT Finder (start 72,72)*)
+## 4. Shooting LUT (*TUNE: LUT Finder (start 24,24)*)
 
 The LUT maps **distance from the turret to the target** to **flywheel speed** and **hood position**.
 
@@ -127,13 +127,13 @@ Everything works like TeleOp (drive, turret auto-aim, LB to shoot, RT for intake
 | A | **record** distance + speed + hood |
 | X | delete the last recorded point |
 
-**The robot thinks it starts at (72, 72, 90°).** That's the center of the field, under the HIVE frame, so on a real field the robot can't be there. Change `LutFinder.START_X / START_Y / START_HEADING_DEG` to a real spot you can measure (for example a tile corner), and place the robot exactly there before pressing START. Triangle resets to that same spot.
+**The robot starts at (24, 24, 90°):** the tile corner two tiles in from the audience wall and two tiles in from the red wall, facing away from the audience (+y). Place the **robot's center** exactly on that corner before pressing START. Triangle resets to the same spot, so you can drive back there and press it to re-sync. To use another spot, change `LutFinder.START_X / START_Y / START_HEADING_DEG`.
 
 If the robot isn't where it thinks it is, every distance is wrong and the LUT will be wrong.
 
 Steps:
 1. Choose the alliance in init (d-pad left for red, right for blue). The robot aims at that alliance's hive cell, picked by which half of the field it's in.
-2. Drive to about 40 in from the target (telemetry shows **Distance**). **Stop moving.** Shooting while moving shifts the aim on purpose.
+2. Drive to about 40 in from the target (telemetry shows **Distance**). **Stop moving** before shooting, so every recorded shot is from a known spot.
 3. Press B to load the current LUT guess, then LB to shoot.
 4. Adjust: if shots go **short**, raise the speed (or the hood); if **long**, lower it. Keep going until 3 shots in a row score.
 5. Press **A** to record.
@@ -147,12 +147,11 @@ Steps:
    Paste them into `subsystems/Shooter.java`, keeping `public static double[]` in front of each.
 8. If the hood changes with distance, set `Shooter.USE_HOOD_LUT = true`. While it's false, the hood stays at `HOOD_POS` (0.5).
 
-`TOF_DIST` / `LUT_TOF` (time of flight, for shoot-on-the-move) are separate and can stay as they are.
 
 ---
 
 ## 5. Check everything
 
-- **TEST: TeleOp (start 72,72):** same as TeleOp, but always starts at (72, 72, 90°), never loads or saves the auto pose, and shows a **POSITION** block. Use it for driving practice and odometry checks without touching the real TeleOp's saved pose.
+- **TEST: TeleOp (start 24,24):** same as TeleOp, but always starts at (24, 24, 90°), never loads or saves the auto pose, and shows a **POSITION** block. Use it for driving practice and odometry checks without touching the real TeleOp's saved pose.
 - **RED / BLUE AUTO 1 and 2:** the turret must face straight forward at INIT. Watch the "Step" line in telemetry.
 - **TeleOp** after an auto: it should start where the auto ended, with the alliance already set.

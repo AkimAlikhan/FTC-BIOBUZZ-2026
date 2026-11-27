@@ -119,7 +119,7 @@ public class RedAuto1 extends OpMode {
     public void loop() {
         follower.update();
         Pose pose = follower.pose();
-        if (step != Step.DONE) shooter.update(pose, follower.velocity()); // after step 18 everything stays off
+        if (step != Step.DONE) shooter.update(pose); // after step 18 everything stays off
 
         boolean pathDone = !follower.isBusy();
         boolean shotDone = !shooter.isBusy();
