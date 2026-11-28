@@ -16,6 +16,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 /**
  * RED AUTO 2
  *
+ *   0  wait START_DELAY_SEC (5 s), nothing moves
  *   1  shoot preload
  *   2  drive the path
  *   3  stop everything
@@ -25,6 +26,8 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
  */
 @Autonomous(name = "RED AUTO 2", group = "Competition", preselectTeleOp = "TeleOp")
 public class RedAuto2 extends OpMode {
+
+    public static double START_DELAY_SEC = 5.0;   // step 0
 
     private static final boolean IS_RED = true;
 
@@ -37,7 +40,7 @@ public class RedAuto2 extends OpMode {
     }
 
     // ── Sequence ─────────────────────────────────────────────────────────────
-    private enum Step { SHOOT_PRELOAD, WAIT_SHOT, PATH, DONE }
+    private enum Step { WAIT_START, SHOOT_PRELOAD, WAIT_SHOT, PATH, DONE }
 
     private Follower follower;
     private Shooter shooter;
@@ -62,16 +65,20 @@ public class RedAuto2 extends OpMode {
     @Override
     public void start() {
         matchTimer.reset();
-        step = Step.SHOOT_PRELOAD;
+        step = Step.WAIT_START;
     }
 
     @Override
     public void loop() {
         follower.update();
         Pose pose = follower.pose();
-        if (step != Step.DONE) shooter.update(pose); // after step 3 everything stays off
+        // Nothing moves during the start delay, or after step 3.
+        if (step != Step.WAIT_START && step != Step.DONE) shooter.update(pose);
 
         switch (step) {
+            case WAIT_START:                                      // 0
+                if (matchTimer.seconds() > START_DELAY_SEC) step = Step.SHOOT_PRELOAD;
+                break;
             case SHOOT_PRELOAD:                                   // 1
                 shooter.shoot();
                 step = Step.WAIT_SHOT;
