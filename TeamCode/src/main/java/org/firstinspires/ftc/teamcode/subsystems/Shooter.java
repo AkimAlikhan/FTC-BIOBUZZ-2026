@@ -25,10 +25,19 @@ import java.util.ArrayDeque;
 public class Shooter {
 
     // ── Hive targets, written for RED. Blue = mirrored through the field center
-    // (x -> 144 - x, y -> 144 - y). LOW is used when the robot is below SPLIT_Y, HIGH above.
-    public static double RED_LOW_X  = 60, RED_LOW_Y  = 54;
-    public static double RED_HIGH_X = 60, RED_HIGH_Y = 144 - 54;  // = (60, 90)
-    public static double SPLIT_Y           = 72;
+    // (x -> 144 - x, y -> 144 - y).
+    // y: LOW cell when the robot is below SPLIT_Y, HIGH cell above.
+    public static double RED_LOW_Y  = 54;
+    public static double RED_HIGH_Y = 144 - 54;  // = 90
+    public static double SPLIT_Y    = 72;
+    // x (same for LOW and HIGH), with a dead band so the aim doesn't wiggle:
+    //   robot x < AIM_X_BAND_LOW   -> aim x = AIM_X_WHEN_LEFT
+    //   robot x > AIM_X_BAND_HIGH  -> aim x = AIM_X_WHEN_RIGHT
+    //   in between                 -> keep the last aim x
+    public static double AIM_X_BAND_LOW   = 52;
+    public static double AIM_X_BAND_HIGH  = 68;
+    public static double AIM_X_WHEN_LEFT  = 64;
+    public static double AIM_X_WHEN_RIGHT = 56;
 
     // ── Flywheel (1 motor). Gains live in FlywheelPIDF (tune with "TUNE: Flywheel PIDF"). ─
     public static double AT_SPEED_TOLERANCE = 50; // ticks/s
@@ -89,6 +98,7 @@ public class Shooter {
 
     // Last-loop values, for telemetry.
     private boolean aimingHigh;
+    private double redAimX = Double.NaN; // last aim x in red coordinates (NaN = not chosen yet)
     private double targetX, targetY, realDist;
     private double targetVel, flyVel, flyPower, turretAngle, hoodPos;
 
@@ -120,7 +130,10 @@ public class Shooter {
         setGate(GATE_CLOSE);
     }
 
-    public void setAlliance(boolean red) { isRed = red; }
+    public void setAlliance(boolean red) {
+        isRed = red;
+        redAimX = Double.NaN;
+    }
 
     /** Starts a shot if one isn't already running. */
     public void shoot() {
@@ -164,9 +177,18 @@ public class Shooter {
 
     public void update(Pose pose) {
         // ── Target: point-mirror the robot into red coordinates, choose, mirror back ─
+        double redFrameX = isRed ? pose.x() : 144 - pose.x();
         double redFrameY = isRed ? pose.y() : 144 - pose.y();
+
+        if (redFrameX < AIM_X_BAND_LOW)       redAimX = AIM_X_WHEN_LEFT;
+        else if (redFrameX > AIM_X_BAND_HIGH) redAimX = AIM_X_WHEN_RIGHT;
+        else if (Double.isNaN(redAimX)) {
+            // Started inside the band: pick the side we're closer to.
+            redAimX = redFrameX < (AIM_X_BAND_LOW + AIM_X_BAND_HIGH) / 2 ? AIM_X_WHEN_LEFT : AIM_X_WHEN_RIGHT;
+        } // else: inside the band, keep the last aim x
+
         aimingHigh = redFrameY >= SPLIT_Y;
-        double redX = aimingHigh ? RED_HIGH_X : RED_LOW_X;
+        double redX = redAimX;
         double redY = aimingHigh ? RED_HIGH_Y : RED_LOW_Y;
         targetX = isRed ? redX : 144 - redX;
         targetY = isRed ? redY : 144 - redY;

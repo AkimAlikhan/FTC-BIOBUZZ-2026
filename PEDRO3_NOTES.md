@@ -15,6 +15,7 @@ Last season's code (Pedro 2.1.2, DECODE) is saved in `archive/2025-26-decode/`. 
 | `teamcode/opmodes/RedAuto1.java` | "RED AUTO 1": 18-step auto (paths + shots), saves end pose for TeleOp |
 | `teamcode/opmodes/BlueAuto1.java` | "BLUE AUTO 1": same route rotated 180° around the field center; edit independently |
 | `teamcode/opmodes/RedAuto2.java` / `BlueAuto2.java` | "RED/BLUE AUTO 2": shoot preload, one path, stop |
+| `teamcode/opmodes/RedAuto3.java` / `BlueAuto3.java` | "RED/BLUE AUTO 3": shoot, path 1, intake + path 2 (half speed), shoot, path 3, stop |
 | `teamcode/opmodes/MainTeleOp.java` | "TeleOp": field-centric drive, alliance select, shoot on LB, intake on RT |
 | `teamcode/opmodes/FlywheelEncoderTest.java` | Prints flywheel `getVelocity()` |
 | `teamcode/opmodes/ServoTuner.java` | Find gate / hood servo positions |
